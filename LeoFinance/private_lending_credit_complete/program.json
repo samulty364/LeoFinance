@@ -1,0 +1,9 @@
+{
+  "program": "private_lending_credit_complete.aleo",
+  "version": "0.1.0",
+  "description": "Privacy-Preserving Credit Scoring & Lending Protocol on Aleo",
+  "license": "MIT",
+  "leo": "3.4.0",
+  "dependencies": null,
+  "dev_dependencies": null
+}

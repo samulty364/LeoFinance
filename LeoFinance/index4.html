@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aleo Private Lending | Zero-Knowledge Credit System</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leo Wallet Bundle -->
+    <script src="js/leo-wallet-bundle.js"></script>
+    <script src="js/transaction.js"></script>
+    <link href="css/style.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ========== MODALS START ========== -->
+    
+    <!-- Register User Modal -->
+    <div class="modal" id="registerUserModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Register New User</h3>
+                <button class="close-modal" onclick="closeModal('registerUserModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Register to start building your credit score on Aleo's zero-knowledge network.</p>
+                <div class="form-group">
+                    <label class="form-label">Identity Commitment (Unique ID)</label>
+                    <input type="number" class="form-control" id="userIdentityCommitment" 
+                           placeholder="123456789" min="1">
+                    <small>A unique number to identify you privately on-chain</small>
+                </div>
+                <button class="btn btn-primary w-100" onclick="registerUser()" id="registerUserBtn">
+                    <i class="fas fa-user-plus"></i> Register User
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate Credit Proof Modal -->
+    <div class="modal" id="generateProofModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Generate ZK Credit Proof</h3>
+                <button class="close-modal" onclick="closeModal('generateProofModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Create a zero-knowledge proof that your credit score meets requirements without revealing the exact score.</p>
+                <div id="creditProofInfo"></div>
+                <div class="form-group">
+                    <label class="form-label">Minimum Score Threshold</label>
+                    <input type="number" class="form-control" id="proofThreshold" 
+                           placeholder="600" min="0" max="1000">
+                    <small>Prove your score is ≥ this value (without revealing exact score)</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Validity Period (seconds)</label>
+                    <input type="number" class="form-control" id="proofValidity" 
+                           placeholder="2592000" value="2592000">
+                    <small>How long this proof remains valid (default: 30 days)</small>
+                </div>
+                <button class="btn btn-success w-100" onclick="generateCreditProof()" id="generateProofBtn">
+                    <i class="fas fa-shield-alt"></i> Generate ZK Proof
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lock Collateral Modal -->
+    <div class="modal" id="lockCollateralModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Lock Collateral</h3>
+                <button class="close-modal" onclick="closeModal('lockCollateralModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Lock collateral to secure a loan. Collateral will be released when the loan is repaid.</p>
+                <div class="form-group">
+                    <label class="form-label">Loan ID</label>
+                    <input type="text" class="form-control" id="collateralLoanId" placeholder="loan_123">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Collateral Amount (μAleo)</label>
+                    <input type="number" class="form-control" id="collateralAmount" placeholder="1500" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Token Type</label>
+                    <select class="form-control" id="collateralTokenType">
+                        <option value="0">ALEO</option>
+                        <option value="1">Custom Token</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Lock Duration (days)</label>
+                    <input type="number" class="form-control" id="collateralDuration" 
+                           placeholder="90" min="1" max="365">
+                </div>
+                <button class="btn btn-warning w-100" onclick="lockCollateral()" id="lockCollateralBtn">
+                    <i class="fas fa-lock"></i> Lock Collateral
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Loan with Credit Modal -->
+    <div class="modal" id="createLoanCreditModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Credit-Based Loan Offer</h3>
+                <button class="close-modal" onclick="closeModal('createLoanCreditModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Create a loan offer with credit score and collateral requirements.</p>
+                <div class="form-group">
+                    <label class="form-label">Borrower Address</label>
+                    <input type="text" class="form-control" id="creditBorrowerAddress" placeholder="aleo1...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Loan Amount (μAleo)</label>
+                    <input type="number" class="form-control" id="creditLoanAmount" placeholder="1000" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Interest Rate (basis points, max 5000)</label>
+                    <input type="number" class="form-control" id="creditInterestRate" placeholder="500" min="0" max="5000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Duration (Days)</label>
+                    <input type="number" class="form-control" id="creditLoanDuration" placeholder="90" min="1" max="365">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Minimum Credit Score Required</label>
+                    <input type="number" class="form-control" id="minCreditScore" placeholder="600" min="0" max="1000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Required Collateral (μAleo)</label>
+                    <input type="number" class="form-control" id="requiredCollateral" placeholder="1500" min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Collateral Ratio (basis points)</label>
+                    <input type="number" class="form-control" id="collateralRatio" placeholder="15000" min="10000">
+                    <small>15000 = 150% collateral ratio</small>
+                </div>
+                <button class="btn btn-primary w-100" onclick="createLoanOfferWithCredit()" id="createLoanCreditBtn">
+                    <i class="fas fa-hand-holding-usd"></i> Create Credit-Based Offer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accept Loan with Credit Modal -->
+    <div class="modal" id="acceptLoanCreditModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Accept Loan (Credit-Based)</h3>
+                <button class="close-modal" onclick="closeModal('acceptLoanCreditModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="acceptLoanCreditDetails"></div>
+                <p class="modal-description mt-20">You need to provide a ZK credit proof and lock collateral to accept this loan.</p>
+                <button class="btn btn-success w-100" onclick="acceptLoanOfferWithCredit()" id="acceptLoanCreditBtn">
+                    <i class="fas fa-check-circle"></i> Accept with Credit Proof
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ORIGINAL MODALS (PRESERVED) ========== -->
+    
+    <!-- Create Loan Modal -->
+    <div class="modal" id="createLoanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Loan Offer</h3>
+                <button class="close-modal" onclick="closeModal('createLoanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Borrower Address</label>
+                    <input type="text" class="form-control" id="borrowerAddress" placeholder="aleo1...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount (μAleo)</label>
+                    <input type="number" class="form-control" id="loanAmount" placeholder="1000" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Interest Rate (basis points, max 5000 = 50%)</label>
+                    <input type="number" class="form-control" id="interestRate" placeholder="500" min="0" max="5000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Duration (Days)</label>
+                    <input type="number" class="form-control" id="loanDuration" placeholder="30" min="1" max="365">
+                </div>
+                <button class="btn btn-primary w-100" onclick="createLoanOffer()" id="createLoanBtn">
+                    <i class="fas fa-hand-holding-usd"></i> Create Loan Offer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Offer Modal -->
+    <div class="modal" id="sendOfferModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Send Loan Offer</h3>
+                <button class="close-modal" onclick="closeModal('sendOfferModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="sendOfferDetails"></div>
+                <div class="form-group">
+                    <label class="form-label">Recipient Address</label>
+                    <input type="text" class="form-control" id="recipientAddress" placeholder="aleo1...">
+                </div>
+                <button class="btn btn-primary w-100" onclick="sendLoanOffer()" id="sendOfferBtn">
+                    <i class="fas fa-paper-plane"></i> Send Offer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accept Loan Modal -->
+    <div class="modal" id="acceptLoanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Accept Loan Offer</h3>
+                <button class="close-modal" onclick="closeModal('acceptLoanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="acceptLoanDetails"></div>
+                <button class="btn btn-success w-100" onclick="acceptLoanOffer()" id="acceptLoanBtn">
+                    <i class="fas fa-check"></i> Accept Loan Offer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repay Loan Modal -->
+    <div class="modal" id="repayLoanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Repay Loan</h3>
+                <button class="close-modal" onclick="closeModal('repayLoanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="repayLoanDetails"></div>
+                <div class="form-group">
+                    <label class="form-label">Repayment Amount (μAleo)</label>
+                    <input type="number" class="form-control" id="repayAmount" placeholder="0">
+                </div>
+                <button class="btn btn-success w-100" onclick="repayLoan()" id="repayLoanBtn">
+                    <i class="fas fa-money-bill-wave"></i> Make Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extend Loan Modal -->
+    <div class="modal" id="extendLoanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Extend Loan Duration</h3>
+                <button class="close-modal" onclick="closeModal('extendLoanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="extendLoanDetails"></div>
+                <div class="form-group">
+                    <label class="form-label">Extra Days (max 30)</label>
+                    <input type="number" class="form-control" id="extraDays" placeholder="7" min="1" max="30">
+                </div>
+                <button class="btn btn-warning w-100" onclick="extendLoan()" id="extendLoanBtn">
+                    <i class="fas fa-calendar-plus"></i> Extend Loan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Split Loan Modal -->
+    <div class="modal" id="splitLoanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Split Loan</h3>
+                <button class="close-modal" onclick="closeModal('splitLoanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="splitLoanDetails"></div>
+                <div class="form-group">
+                    <label class="form-label">Number of Parts</label>
+                    <input type="number" class="form-control" id="splitParts" placeholder="2" min="2">
+                </div>
+                <button class="btn btn-warning w-100" onclick="splitLoan()" id="splitLoanBtn">
+                    <i class="fas fa-cut"></i> Split Loan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swap Loan Modal -->
+    <div class="modal" id="swapLoanModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Transfer Loan</h3>
+                <button class="close-modal" onclick="closeModal('swapLoanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="swapLoanDetails"></div>
+                <div class="form-group">
+                    <label class="form-label">New Borrower Address</label>
+                    <input type="text" class="form-control" id="newBorrowerAddress" placeholder="aleo1...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Transfer Fee (μAleo)</label>
+                    <input type="number" class="form-control" id="swapFee" placeholder="100" min="0">
+                </div>
+                <button class="btn btn-warning w-100" onclick="swapLoan()" id="swapLoanBtn">
+                    <i class="fas fa-exchange-alt"></i> Transfer Loan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- List Public Offer Modal -->
+    <div class="modal" id="listPublicModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Public Loan Offer</h3>
+                <button class="close-modal" onclick="closeModal('listPublicModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Amount (μAleo)</label>
+                    <input type="number" class="form-control" id="publicAmount" placeholder="1000" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Interest Rate (basis points, max 5000)</label>
+                    <input type="number" class="form-control" id="publicInterest" placeholder="500" min="0" max="5000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Duration (Days)</label>
+                    <input type="number" class="form-control" id="publicDuration" placeholder="30" min="1" max="365">
+                </div>
+                <button class="btn btn-success w-100" onclick="listPublicOffer()" id="listPublicBtn">
+                    <i class="fas fa-globe"></i> List Public Offer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Interest Modal -->
+    <div class="modal" id="updateInterestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Update Interest Rate</h3>
+                <button class="close-modal" onclick="closeModal('updateInterestModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-details" id="updateInterestDetails"></div>
+                <div class="form-group">
+                    <label class="form-label">New Interest Rate (basis points, max 5000)</label>
+                    <input type="number" class="form-control" id="newInterestRate" placeholder="500" min="0" max="5000">
+                </div>
+                <button class="btn btn-primary w-100" onclick="updateInterest()" id="updateInterestBtn">
+                    <i class="fas fa-percentage"></i> Update Interest
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODALS END ========== -->
+
+    <!-- Main Container -->
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-shield-alt" style="font-size: 2rem; color: var(--primary-color);"></i>
+                    <div>
+                        <h1>Aleo Private Lending</h1>
+                        <small style="color: #6b7280; font-size: 0.85rem;">Zero-Knowledge Credit System</small>
+                    </div>
+                </div>
+                <div class="wallet-section">
+                    <button class="wallet-btn" onclick="toggleWalletConnection()" id="connectWalletBtn">
+                        <i class="fas fa-wallet"></i>
+                        <span>Connect Wallet</span>
+                    </button>
+                    <button class="wallet-btn" onclick="fetchRecords()" id="refreshBtn" style="display: none;">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="#" class="nav-link active" onclick="showSection('dashboard')">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('profile')">
+                            <i class="fas fa-user-shield"></i>
+                            <span>Credit Profile</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('lend')">
+                            <i class="fas fa-hand-holding-usd"></i>
+                            <span>Lend</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('borrow')">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span>Borrow</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('loans')">
+                            <i class="fas fa-file-contract"></i>
+                            <span>My Loans</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('collateral')">
+                            <i class="fas fa-lock"></i>
+                            <span>Collateral</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('repay')">
+                            <i class="fas fa-credit-card"></i>
+                            <span>Repay</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('manage')">
+                            <i class="fas fa-cogs"></i>
+                            <span>Manage</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('public')">
+                            <i class="fas fa-globe"></i>
+                            <span>Public Offers</span>
+                        </a>
+                    </li>
+                </ul>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main>
+                <!-- Dashboard Section -->
+                <section id="dashboardSection" class="content-area active">
+                    <h2 class="section-title">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Dashboard
+                    </h2>
+                    
+                    <div class="dashboard">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Active Loans</h3>
+                                <i class="fas fa-file-contract card-icon"></i>
+                            </div>
+                            <div class="card-value" id="activeLoansCount">0</div>
+                            <p>Currently active loans</p>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Total Lent</h3>
+                                <i class="fas fa-coins card-icon"></i>
+                            </div>
+                            <div class="card-value" id="totalLent">0 μA</div>
+                            <p>Amount you've lent</p>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Total Borrowed</h3>
+                                <i class="fas fa-hand-holding-usd card-icon"></i>
+                            </div>
+                            <div class="card-value" id="totalBorrowed">0 μA</div>
+                            <p>Amount you've borrowed</p>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Pending Repayment</h3>
+                                <i class="fas fa-clock card-icon"></i>
+                            </div>
+                            <div class="card-value" id="pendingRepayment">0 μA</div>
+                            <p>Awaiting repayment</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-30">
+                        <h3 class="section-title">
+                            <i class="fas fa-history"></i>
+                            Recent Activity
+                        </h3>
+                        <div class="table-container">
+                            <table id="recentActivity">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Counterparty</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Activity rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- NEW: Credit Profile Section -->
+                <section id="profileSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-user-shield"></i>
+                        Credit Profile
+                    </h2>
+                    
+                    <div id="profileNotRegistered" class="card mb-30">
+                        <div class="card-body text-center">
+                            <i class="fas fa-user-plus" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                            <h3>Not Registered Yet</h3>
+                            <p style="margin: 1rem 0;">Register to start building your zero-knowledge credit score on Aleo.</p>
+                            <button class="btn btn-primary" onclick="openModal('registerUserModal')">
+                                <i class="fas fa-user-plus"></i> Register Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="profileRegistered" style="display: none;">
+                        <div class="dashboard mb-30">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">Credit Score</h3>
+                                    <i class="fas fa-chart-line card-icon"></i>
+                                </div>
+                                <div class="card-value" id="userCreditScore">500</div>
+                                <p id="creditScoreRating">Fair</p>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">Total Loans</h3>
+                                    <i class="fas fa-file-invoice-dollar card-icon"></i>
+                                </div>
+                                <div class="card-value" id="userTotalLoans">0</div>
+                                <p>Lifetime loans</p>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">Success Rate</h3>
+                                    <i class="fas fa-check-circle card-icon"></i>
+                                </div>
+                                <div class="card-value" id="userSuccessRate">0%</div>
+                                <p>On-time repayments</p>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">Defaults</h3>
+                                    <i class="fas fa-exclamation-triangle card-icon"></i>
+                                </div>
+                                <div class="card-value" id="userDefaults">0</div>
+                                <p>Total defaults</p>
+                            </div>
+                        </div>
+
+                        <div class="card mb-30">
+                            <div class="card-header">
+                                <h3 class="card-title">ZK Credential Generation</h3>
+                            </div>
+                            <div class="card-body">
+                                <p>Generate a zero-knowledge proof to prove your creditworthiness without revealing your exact score.</p>
+                                <button class="btn btn-success" onclick="openModal('generateProofModal')">
+                                    <i class="fas fa-shield-alt"></i> Generate ZK Credit Proof
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Profile Details</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="detail-row">
+                                    <span class="detail-label">User ID (Commitment):</span>
+                                    <span class="detail-value" id="userIdDisplay">-</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Total Borrowed:</span>
+                                    <span class="detail-value" id="userTotalBorrowed">0 μA</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Total Repaid:</span>
+                                    <span class="detail-value" id="userTotalRepaid">0 μA</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Registration Date:</span>
+                                    <span class="detail-value" id="userRegistrationDate">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Lend Section -->
+                <section id="lendSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-hand-holding-usd"></i>
+                        Create Loan Offer
+                    </h2>
+                    
+                    <div class="dashboard mb-30">
+                        <div class="card" onclick="openModal('createLoanModal')" style="cursor: pointer;">
+                            <div class="card-header">
+                                <h3 class="card-title">Basic Offer</h3>
+                                <i class="fas fa-user-friends card-icon"></i>
+                            </div>
+                            <p>Standard private loan offer</p>
+                        </div>
+                        
+                        <div class="card" onclick="openModal('createLoanCreditModal')" style="cursor: pointer;">
+                            <div class="card-header">
+                                <h3 class="card-title">Credit-Based Offer</h3>
+                                <i class="fas fa-shield-alt card-icon"></i>
+                            </div>
+                            <p>Require credit score & collateral</p>
+                        </div>
+
+                        <div class="card" onclick="openModal('listPublicModal')" style="cursor: pointer;">
+                            <div class="card-header">
+                                <h3 class="card-title">Public Offer</h3>
+                                <i class="fas fa-globe card-icon"></i>
+                            </div>
+                            <p>List offer for anyone to accept</p>
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title">
+                        <i class="fas fa-list"></i>
+                        My Loan Offers
+                    </h3>
+                    <div class="table-container">
+                        <table id="loanOffersTable">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Borrower</th>
+                                    <th>Amount</th>
+                                    <th>Interest</th>
+                                    <th>Duration</th>
+                                    <th>Min Score</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Loan offers will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Borrow Section -->
+                <section id="borrowSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-money-bill-wave"></i>
+                        Available Loans
+                    </h2>
+                    
+                    <div class="dashboard mb-30">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Your Credit Score</h3>
+                                <i class="fas fa-chart-line card-icon"></i>
+                            </div>
+                            <div class="card-value" id="borrowerCreditScore">500</div>
+                            <p>Based on your repayment history</p>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Available Offers</h3>
+                                <i class="fas fa-handshake card-icon"></i>
+                            </div>
+                            <div class="card-value" id="availableOffersCount">0</div>
+                            <p>Offers you can accept</p>
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title">
+                        <i class="fas fa-bell"></i>
+                        Loan Offers for You
+                    </h3>
+                    <div class="table-container">
+                        <table id="availableLoansTable">
+                            <thead>
+                                <tr>
+                                    <th>Lender</th>
+                                    <th>Amount</th>
+                                    <th>Interest</th>
+                                    <th>Duration</th>
+                                    <th>Min Score</th>
+                                    <th>Collateral Req.</th>
+                                    <th>Type</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Available loans will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- My Loans Section (PRESERVED) -->
+                <section id="loansSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-file-contract"></i>
+                        My Loans
+                    </h2>
+                    
+                    <div class="tabs">
+                        <button class="tab active" onclick="showLoanTab('active')">Active</button>
+                        <button class="tab" onclick="showLoanTab('pending')">Pending</button>
+                        <button class="tab" onclick="showLoanTab('completed')">Completed</button>
+                        <button class="tab" onclick="showLoanTab('overdue')">Overdue</button>
+                    </div>
+                    
+                    <div id="activeLoansTab">
+                        <div class="table-container">
+                            <table id="myLoansTable">
+                                <thead>
+                                    <tr>
+                                        <th>Loan ID</th>
+                                        <th>Type</th>
+                                        <th>Counterparty</th>
+                                        <th>Amount</th>
+                                        <th>Interest</th>
+                                        <th>Due Date</th>
+                                        <th>Repaid</th>
+                                        <th>Progress</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Loans will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- NEW: Collateral Section -->
+                <section id="collateralSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-lock"></i>
+                        Collateral Management
+                    </h2>
+                    
+                    <div class="card mb-30">
+                        <div class="card-header">
+                            <h3 class="card-title">Lock New Collateral</h3>
+                        </div>
+                        <div class="card-body">
+                            <p>Lock collateral to secure a loan. Collateral will be released when the loan is fully repaid.</p>
+                            <button class="btn btn-warning" onclick="openModal('lockCollateralModal')">
+                                <i class="fas fa-lock"></i> Lock Collateral
+                            </button>
+                        </div>
+                    </div>
+
+                    <h3 class="section-title">
+                        <i class="fas fa-list"></i>
+                        My Locked Collateral
+                    </h3>
+                    <div class="table-container">
+                        <table id="collateralTable">
+                            <thead>
+                                <tr>
+                                    <th>Loan ID</th>
+                                    <th>Amount</th>
+                                    <th>Token</th>
+                                    <th>Lock Time</th>
+                                    <th>Release Time</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Collateral entries will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Repay Section (PRESERVED) -->
+                <section id="repaySection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-credit-card"></i>
+                        Repay Loans
+                    </h2>
+                    
+                    <div class="card mb-30">
+                        <div class="card-header">
+                            <h3 class="card-title">Quick Repayment</h3>
+                        </div>
+                        <div class="card-body">
+                            <p>Select a loan to make a repayment. Payments update your credit score!</p>
+                            <div class="form-group">
+                                <label class="form-label">Select Loan</label>
+                                <select class="form-control" id="loanSelector">
+                                    <option value="">Select a loan...</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-success" onclick="openRepayModal()" id="repayBtn" disabled>
+                                <i class="fas fa-money-bill-wave"></i> Make Payment
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title">
+                        <i class="fas fa-history"></i>
+                        Payment History
+                    </h3>
+                    <div class="table-container">
+                        <table id="paymentHistoryTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Loan ID</th>
+                                    <th>Amount</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Payment history will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Manage Section (PRESERVED) -->
+                <section id="manageSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-cogs"></i>
+                        Loan Management
+                    </h2>
+                    
+                    <div class="dashboard mb-30">
+                        <div class="card" onclick="openExtendModal()" style="cursor: pointer;">
+                            <div class="card-header">
+                                <h3 class="card-title">Extend Loan</h3>
+                                <i class="fas fa-calendar-plus card-icon"></i>
+                            </div>
+                            <p>Request extension for active loans</p>
+                        </div>
+                        
+                        <div class="card" onclick="openSplitModal()" style="cursor: pointer;">
+                            <div class="card-header">
+                                <h3 class="card-title">Split Loan</h3>
+                                <i class="fas fa-cut card-icon"></i>
+                            </div>
+                            <p>Split loan into multiple parts</p>
+                        </div>
+                        
+                        <div class="card" onclick="openSwapModal()" style="cursor: pointer;">
+                            <div class="card-header">
+                                <h3 class="card-title">Transfer Loan</h3>
+                                <i class="fas fa-exchange-alt card-icon"></i>
+                            </div>
+                            <p>Transfer loan to another borrower</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Loan Tools</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">Check Loan Status</label>
+                                <div class="d-flex gap-10">
+                                    <select class="form-control" id="checkLoanSelect">
+                                        <option value="">Select a loan...</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="checkLoanStatus()">
+                                        <i class="fas fa-search"></i> Check
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="loanStatusResult" class="mt-20"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Public Offers Section (PRESERVED) -->
+                <section id="publicSection" class="content-area">
+                    <h2 class="section-title">
+                        <i class="fas fa-globe"></i>
+                        Public Loan Market
+                    </h2>
+                    
+                    <div class="card mb-30">
+                        <div class="card-header">
+                            <h3 class="card-title">Public Offers</h3>
+                        </div>
+                        <div class="card-body">
+                            <p>Browse and accept public loan offers from lenders.</p>
+                            <button class="btn btn-primary" onclick="openModal('listPublicModal')">
+                                <i class="fas fa-plus-circle"></i> Create Public Offer
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title">
+                        <i class="fas fa-bullhorn"></i>
+                        Available Public Offers
+                    </h3>
+                    <div class="table-container">
+                        <table id="publicOffersTable">
+                            <thead>
+                                <tr>
+                                    <th>Lender</th>
+                                    <th>Amount</th>
+                                    <th>Interest</th>
+                                    <th>Duration</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Public offers will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Main JavaScript -->
+    <script src="js/app.js"></script>
+</body>
+</html>
