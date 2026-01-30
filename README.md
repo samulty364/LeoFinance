@@ -381,9 +381,6 @@ All credit scores, loan amounts, and repayment history remain completely private
 **Live Demo**  
 FULL DEMO (Frontend Walkthrough): *Coming soon*
 
-**Flowchart**  
-Complete system flow diagram available in `zk_lending_flowchart.html` - open in browser to view the interactive diagram.
-
 **Transaction IDs**  
 MAINNET: *(Pending – update after deployment)*  
 TESTNET PROGRAM: `https://testnet.explorer.provable.com/program/private_lending_credit_complete.aleo`
