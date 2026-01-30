@@ -382,7 +382,7 @@ All credit scores, loan amounts, and repayment history remain completely private
 FULL DEMO (Frontend Walkthrough): *Coming soon*
 
 **Flowchart**  
-![Privacy Lending Flow](docs/flowchart.png)
+Complete system flow diagram available in `zk_lending_flowchart.html` - open in browser to view the interactive diagram.
 
 **Transaction IDs**  
 MAINNET: *(Pending – update after deployment)*  
